@@ -506,42 +506,44 @@ function hmrAcceptRun(bundle, id) {
 var _notiflixNotifyAio = require("notiflix/build/notiflix-notify-aio");
 var _api = require("./helpers/api");
 var _helpers = require("./helpers/helpers");
-let currentPage = 1;
-let perPage = 40;
-let searchData = "";
 const formEl = document.querySelector("#search-form");
 const galleryEl = document.querySelector(".gallery");
 const loadMoreButtonEl = document.querySelector(".load-more");
-formEl.addEventListener("submit", async (event)=>{
-    currentPage = 1;
-    event.preventDefault();
-    searchData = event.target.elements.searchQuery.value;
-    if (searchData !== "") {
-        loadMoreButtonEl.style.display = "none";
-        const images = await (0, _api.fetchImages)(searchData);
-        if (images.hits.length === 0) {
-            (0, _notiflixNotifyAio.Notify).warning("Sorry, there are no images matching your search query. Please try again.");
-            galleryEl.innerHTML = "";
-            return;
-        }
-        galleryEl.innerHTML = (0, _helpers.getTemplate)(images.hits);
-        console.log(images);
-        if (perPage * currentPage < images.totalHits) loadMoreButtonEl.style.display = "block";
-        else (0, _notiflixNotifyAio.Notify).warning("We're sorry, but you've reached the end of search results.");
-    } else {
-        (0, _notiflixNotifyAio.Notify).warning("Please enter something :)");
-        galleryEl.innerHTML = "";
-    }
+const randomBtn = document.querySelector(".random-btn");
+const photoDiv = document.querySelector(".photo");
+const breedDiv = document.querySelector(".breed-photo");
+const formBreeds = document.querySelector(".breeds-form");
+const selectBreeds = document.querySelector(".breeds-select");
+// console.log(selectBreeds.value);
+const buttonBreeds = document.querySelector(".button-breeds");
+randomBtn.addEventListener("click", async (event)=>{
+    const photo = await (0, _api.getRandomPhoto)();
+    const template = `<img src="${photo.url}"/>`;
+    photoDiv.innerHTML = template;
 });
-loadMoreButtonEl.addEventListener("click", async (event)=>{
-    currentPage += 1;
-    const loadMore = await (0, _api.fetchImages)(searchData, currentPage);
-    galleryEl.insertAdjacentHTML("beforeend", (0, _helpers.getTemplate)(loadMore.hits));
-    if (perPage * currentPage < loadMore.totalHits) loadMoreButtonEl.style.display = "block";
-    else {
-        loadMoreButtonEl.style.display = "none";
-        (0, _notiflixNotifyAio.Notify).warning("We're sorry, but you've reached the end of search results.");
-    }
+const drawBreeds = async ()=>{
+    const breeds = await (0, _api.getBreeds)();
+    // console.log(breeds);
+    const template = breeds.map(({ name , id  })=>{
+        return `<option value="${id}">${name}</option>`;
+    });
+    // console.log(template);
+    selectBreeds.innerHTML = template.join("");
+};
+drawBreeds();
+formBreeds.addEventListener("submit", submitForm);
+async function submitForm(event) {
+    event.preventDefault();
+    const breedId = event.currentTarget.elements.breed.value;
+    const searchResult = await (0, _api.searchByBreed)(breedId);
+    console.log(searchResult);
+    const template = searchResult.map((breed)=>{
+        return `<img src="${breed.url}"/>`;
+    });
+    breedDiv.innerHTML = template.join("");
+}
+selectBreeds.addEventListener("change", (event)=>{
+//  console.log(event.currentTarget.value);
 });
 
 },{"notiflix/build/notiflix-notify-aio":"eXQLZ","./helpers/api":"13sTb","./helpers/helpers":"1iQT4"}],"eXQLZ":[function(require,module,exports) {
@@ -1016,22 +1018,27 @@ var global = arguments[3];
 },{}],"13sTb":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "fetchImages", ()=>fetchImages);
+parcelHelpers.export(exports, "getRandomPhoto", ()=>getRandomPhoto);
+parcelHelpers.export(exports, "searchByBreed", ()=>searchByBreed);
+parcelHelpers.export(exports, "getBreeds", ()=>getBreeds);
 var _axios = require("axios");
 var _axiosDefault = parcelHelpers.interopDefault(_axios);
-const BASE_URL = "https://pixabay.com/api/";
-const fetchImages = async (query, page = 1)=>{
-    const { data  } = await (0, _axiosDefault.default).get(BASE_URL, {
+(0, _axiosDefault.default).defaults.baseURL = "https://api.thedogapi.com/v1/";
+const keyApi = "live_NL54OJNpOrjWkzTor3m8MN0wdf0o7yHHKIrYIFMnjaGrnUGlb0yAMUXXA5XGJRWk";
+async function getRandomPhoto() {
+    const { data  } = await (0, _axiosDefault.default).get("images/search");
+    return data[0];
+}
+const searchByBreed = async function(breedId) {
+    const { data  } = await (0, _axiosDefault.default).get("images/search", {
         params: {
-            key: "30313621-ff7fe66ba11e046cf69a4fc60",
-            q: query,
-            safesearch: true,
-            image_type: "photo",
-            orientation: "horizontal",
-            page,
-            per_page: 40
+            breed_ids: breedId
         }
     });
+    return data;
+};
+const getBreeds = async ()=>{
+    const { data  } = await (0, _axiosDefault.default).get("breeds");
     return data;
 };
 
@@ -4421,30 +4428,7 @@ exports.export = function(dest, destName, get) {
 };
 
 },{}],"1iQT4":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "getTemplate", ()=>getTemplate);
-const getTemplate = (arrOfImages)=>{
-    const template = arrOfImages.map(({ largeImageURL , webformatURL , tags , likes , views , comments , downloads ,  })=>`<div class="photo-card">
-      <a href="${largeImageURL}"><img class="photo" src="${webformatURL}" alt="${tags}" title="${tags}" loading="lazy"/></a>
-       <div class="info">
-          <p class="info-item">
-    <b>Likes</b> <span class="info-item-api"> ${likes} </span>
-    </p>
-           <p class="info-item">
-               <b>Views</b> <span class="info-item-api">${views}</span>  
-           </p>
-           <p class="info-item">
-               <b>Comments</b> <span class="info-item-api">${comments}</span>  
-           </p>
-           <p class="info-item">
-               <b>Downloads</b> <span class="info-item-api">${downloads}</span> 
-           </p>
-       </div>
-    </div>`).join("");
-    return template;
-};
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}]},["1RB6v","8lqZg"], "8lqZg", "parcelRequired7c6")
+},{}]},["1RB6v","8lqZg"], "8lqZg", "parcelRequired7c6")
 
 //# sourceMappingURL=index.975ef6c8.js.map
